@@ -7,13 +7,16 @@
 class Spinner : public MidiModule
 {
 public:
-    Spinner(const uint8_t sensorPin, BLEMidiConfig* confi);
+    Spinner();
     ~Spinner();
     void handlePulse();
     void readSensor() override;
     void checkPushes() override;
+    void setInterrupts();
     virtual MidiCommand rpm2midi();
     volatile double rpm;
+    virtual bool pinSetup(const int* pins, const int* modes, uint8_t len) override;
+    // static void doPushesWrapper(void *pvParemeters);
 private:
     uint8_t sPin;
     volatile uint32_t pulseCounter;

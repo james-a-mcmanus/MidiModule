@@ -1,6 +1,6 @@
 #include "midimodule.h"
 
-MidiModule::MidiModule() : sm(SendMode::NONE), econfig(nullptr), mconfig(nullptr), sendFunc(nullptr) {
+MidiModule::MidiModule() : sm(SendMode::NONE), econfig(nullptr), mconfig(nullptr), sendFunc(nullptr), sensorInterval(1000), sendInterval(1000) {
 	setSendFunction(SendMode::NONE);
 }
 
@@ -84,15 +84,23 @@ bool MidiModule::espSend(){
 }
 
 bool MidiModule::bleMidiSend(){
-	if (midiBuffer.isEmpty()){ return false; }
 	MidiCommand m;
-	if (!midiBuffer.pop(m)) { return false; };
+
+	if (!midiBuffer.pop(m)) return false;
+	if (!BLEMidiServer.isConnected()){
+		Serial.println("not connected");
+	}
+	// if (!midiBuffer.pop(m)) { return false; };
 	switch (m.com){
 	case 0:
 		BLEMidiServer.noteOff(m.chan, m.note, m.vel);
 		break;
 	case 1:
 		BLEMidiServer.noteOn(m.chan, m.note, m.vel);
+		break;
+	case 3:
+		BLEMidiServer.noteOn(m.chan, m.note, m.vel);
+		BLEMidiServer.noteOff(m.chan, m.note, m.vel);
 		break;
 	}
 	return true;
@@ -112,14 +120,25 @@ bool MidiModule::sendAll(){
 	return true;
 }
 
+void MidiModule::setSendInterval(int64_t t){sendInterval = t;};
+void MidiModule::setSensorInterval(int64_t t){sensorInterval = t;};
+
 void MidiModule::readSensorWrapper(void *pvParameters){
-	MidiModule* THIS = (MidiModule*)pvParameters;
-	THIS->readSensor();
+    MidiModule* obj = static_cast<MidiModule*>(pvParameters);
+    for (;;) {
+        obj->readSensor();
+		vTaskDelay(pdMS_TO_TICKS(obj->sensorInterval)); 
+		// note: subclasses readSensor module to define delay. 
+    }
 }
 
 void MidiModule::sendWrapper(void *pvParameters){
 	MidiModule* obj = static_cast<MidiModule*>(pvParameters);
-	obj->sendOne(); // then needs to wait.
+	for (;;) {
+		// Serial.println("sendTask");
+		obj->sendOne(); // then needs to wait.
+		vTaskDelay(pdMS_TO_TICKS(obj->sendInterval)); 
+	}
 }
 
 int MidiModule::receiveEspNow(const uint8_t* mac, const uint8_t* data, const int len){
@@ -144,7 +163,7 @@ bool MidiModule::doNothing(){
 bool MidiModule::setSendFunction(SendMode sm){
 	switch (sm){
 	case SendMode::BLE:
-		if (!mconfig) { return false; }
+		if (!mconfig) { Serial.println("Error: no BLEMidiConfig!"); return false; }
 		sendFunc = &MidiModule::bleMidiSend;
 		break;
 	case SendMode::ESP:

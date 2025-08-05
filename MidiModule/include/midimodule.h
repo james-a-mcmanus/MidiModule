@@ -21,12 +21,14 @@ public:
 	enum SendMode{BLE, ESP, SER, WIFI, NONE};
 	bool BLEMidiInit(BLEMidiConfig* bmc);
 	bool espNowInit(EspnowConfig* econfig);
-	static void sendWrapper(void *pvParameters); // wrapper for attaching to a xtaskcreate.
 	bool setSendFunction(SendMode sm); // set the function by which sendOne and sendAll operate.
 	virtual bool pinSetup(const int* pins, const int* modes, uint8_t len); // can't see why this needs to be part of this class.
 	virtual bool pinSetup(const PinConfigArray* pca, uint8_t len);
+	static void sendWrapper(void *pvParameters); // wrapper for attaching to a xtaskcreate.
 	static void receiveEspNowWrapper(void *pvParameters);
 	static void readSensorWrapper(void *pvParemeters);
+	void setSensorInterval(int64_t);
+	void setSendInterval(int64_t);
 protected:
 	int decodeMIDI(const char* data, uint8_t l); // decodes char array into midi structs and adds to send queue, returns number of midi packets added to queue.
 	bool pushMidi(const MidiCommand& m); // pushes midi into the send queue.
@@ -46,6 +48,8 @@ private:
 	bool econfig;
 	bool mconfig;
 	bool (MidiModule::*sendFunc)();
+	int64_t sensorInterval;
+	int64_t sendInterval;
 };
 
 #endif

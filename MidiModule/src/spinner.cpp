@@ -5,19 +5,24 @@ void IRAM_ATTR isrBridge() {
   if (spinPtr) spinPtr->handlePulse();
 }
 
-Spinner::Spinner(const uint8_t sensorPin, BLEMidiConfig* config){
+Spinner::Spinner(){
     // TODO: implement setup from serial. 
-    sPin = sensorPin;
-    int pins[] = {sensorPin};
-    int modes[] = {INPUT_PULLUP}; // CHECK
-    pinSetup(pins, modes, 1); // TODO: support multiple digireads.
-    BLEMidiInit(config);
-    setSendFunction(SendMode::BLE);
     spinPtr = this;
+    setSensorInterval(checkInterval);
+    setSendInterval(100);
 }
 
 Spinner::~Spinner(){
 
+}
+
+bool Spinner::pinSetup(const int* pins, const int* modes, uint8_t len){
+    sPin = pins[0];
+    return MidiModule::pinSetup(pins, modes, len);
+}
+
+void Spinner::setInterrupts(){
+    attachInterrupt(digitalPinToInterrupt(sPin), isrBridge, FALLING);
 }
 
 void Spinner::handlePulse(){
@@ -32,14 +37,18 @@ void Spinner::readSensor(){
     rpm = pulseCounter * 60 * (1000.0/checkInterval);
     pulseCounter = 0;
     portEXIT_CRITICAL(&mux);
+    checkPushes();
 }
+
 
 void Spinner::checkPushes(){
     // check current RPM and generate MIDI.
-    pushMidi(rpm2midi());
-
+    if (rpm > 0){
+        // Serial.println(rpm);
+        pushMidi(rpm2midi());
+    }
 }
 
 MidiCommand Spinner::rpm2midi(){
-    return MidiCommand{0,0,60, (uint8_t)this->rpm};
+    return MidiCommand{3,1,60,127};//(uint8_t)this->rpm};
 }
